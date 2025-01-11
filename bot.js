@@ -1,5 +1,4 @@
 require('dotenv').config();
-await rest.put(Routes.applicationCommands('1319967938215673887'), { body: commands });
 const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes } = require('discord.js');
 
 // Set up the bot client
@@ -9,8 +8,10 @@ const client = new Client({
 
 // Your bot token and client ID
 const TOKEN = process.env.DISCORD_TOKEN;
-console.log(`Loaded Token: ${TOKEN}`);
-const CLIENT_ID = '1319967938215673887'; // Find this in the Discord Developer Portal
+const CLIENT_ID = '1319967938215673887'; // Replace with your actual Client ID
+
+// Debug to confirm token is loaded
+console.log(`Loaded Token: ${process.env.DISCORD_TOKEN}`);
 
 // Register slash commands
 const commands = [
@@ -22,74 +23,59 @@ const commands = [
         .setDescription('Ends the current session'),
 ];
 
-// Register the commands with Discord's API
-const rest = new REST({ version: '10' }).setToken(TOKEN);
+// Add logic for games (Deathroll example provided)
+function playDeathroll(message, startingNumber) {
+    let currentMax = startingNumber;
+    let currentPlayer = 1;
 
-(async () => {
-    try {
-        console.log('Registering slash commands...');
-        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('Slash commands registered!');
-    } catch (error) {
-        console.error('Error registering commands:', error);
-    }
-})();
+    const roll = () => Math.floor(Math.random() * currentMax) + 1;
 
-// Helper function to deal a card
-function dealCard() {
-    const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-    const suits = ['♠', '♥', '♦', '♣'];
-    const rank = ranks[Math.floor(Math.random() * ranks.length)];
-    const suit = suits[Math.floor(Math.random() * suits.length)];
-    return `${rank}${suit}`;
+    const rollGame = async () => {
+        while (currentMax > 1) {
+            const rolledNumber = roll();
+            await message.channel.send(
+                `Player ${currentPlayer} rolls **${rolledNumber}** out of ${currentMax}`
+            );
+
+            if (rolledNumber === 1) {
+                await message.channel.send(
+                    `Player ${currentPlayer} rolled a **1**! Player ${
+                        currentPlayer === 1 ? 2 : 1
+                    } wins the Deathroll! 🎉`
+                );
+                return;
+            }
+
+            currentMax = rolledNumber;
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+        }
+    };
+
+    rollGame();
 }
-
-// Blackjack logic
-function playBlackjack() {
-    const playerCards = [dealCard(), dealCard()];
-    const dealerCards = [dealCard(), dealCard()];
-    return `You drew: ${playerCards.join(', ')}\nDealer drew: ${dealerCards.join(', ')}.\nGame over!`;
-}
-
-// Poker logic
-function playPoker() {
-    const playerHand = [dealCard(), dealCard(), dealCard(), dealCard(), dealCard()];
-    return `Your Poker hand: ${playerHand.join(', ')}. Game over!`;
-}
-
-// Event: Bot ready
-client.once('ready', () => {
-    console.log('TRubot is online!');
-});
-
-// Event: Slash command interaction
-client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isCommand()) return;
-
-    const { commandName } = interaction;
-
-    if (commandName === 'trubot') {
-        await interaction.reply(
-            `Hello, this is TRubot! What would you like to play?\n1. Blackjack\n2. Poker\nType the number of your choice below!`
-        );
-    }
-
-    if (commandName === 'end') {
-        await interaction.reply('Ending the session. Goodbye!');
-        process.exit(0); // Stops the bot
-    }
-});
 
 // Event: Message create
 client.on('messageCreate', (message) => {
     if (message.author.bot) return;
 
     if (message.content === '1') {
-        const blackjackGame = playBlackjack();
-        message.channel.send(blackjackGame);
+        message.channel.send('You chose Blackjack!');
     } else if (message.content === '2') {
-        const pokerGame = playPoker();
-        message.channel.send(pokerGame);
+        message.channel.send('You chose Poker!');
+    } else if (message.content.startsWith('3')) {
+        const args = message.content.split(' ');
+        const startingNumber = parseInt(args[1]);
+
+        if (!startingNumber || isNaN(startingNumber) || startingNumber <= 1) {
+            message.channel.send(
+                'Invalid starting number! Use `3 <number>` to start Deathrolling. Example: `3 1000`.'
+            );
+        } else {
+            message.channel.send(
+                `Starting Deathroll game with a maximum roll of **${startingNumber}**! Player 1, roll first.`
+            );
+            playDeathroll(message, startingNumber);
+        }
     }
 });
 
