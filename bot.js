@@ -1,3 +1,5 @@
+require('dotenv').config();
+await rest.put(Routes.applicationCommands('1319967938215673887'), { body: commands });
 const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes } = require('discord.js');
 
 // Set up the bot client
@@ -6,8 +8,9 @@ const client = new Client({
 });
 
 // Your bot token and client ID
-const TOKEN = MTMxOTk2NzkzODIxNTY3Mzg4Nw.GSxvov.X9dVpVK3a4IJyXD0YJnQ46IEEgzmvQyo79LIBU;
-const CLIENT_ID = 1319967938215673887; // Find this in the Discord Developer Portal
+const TOKEN = process.env.DISCORD_TOKEN;
+console.log(`Loaded Token: ${TOKEN}`);
+const CLIENT_ID = '1319967938215673887'; // Find this in the Discord Developer Portal
 
 // Register slash commands
 const commands = [
@@ -91,4 +94,4 @@ client.on('messageCreate', (message) => {
 });
 
 // Log in the bot
-client.login(MTMxOTk2NzkzODIxNTY3Mzg4Nw.GSxvov.X9dVpVK3a4IJyXD0YJnQ46IEEgzmvQyo79LIBU);
+client.login(process.env.DISCORD_TOKEN);
