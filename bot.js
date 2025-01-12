@@ -6,14 +6,27 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages],
 });
 
-// Your bot token and client ID
-const TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = '1319967938215673887'; // Replace with your actual Client ID
-
 // Debug to confirm token is loaded
 console.log(`Loaded Token: ${process.env.DISCORD_TOKEN}`);
+console.log('Starting bot...');
 
-// Register slash commands
+// Add the ready event
+client.once('ready', () => {
+    console.log(`${client.user.tag} is online!`);
+});
+
+// Log in the bot
+client.login(process.env.DISCORD_TOKEN).catch((error) => {
+    console.error('Failed to log in:', error);
+});
+
+console.log('After login attempt...');
+
+// Slash command registration
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = 'YOUR_CLIENT_ID'; // Replace with your bot's Client ID
+const GUILD_ID = 'YOUR_GUILD_ID'; // Replace with your Discord server's Guild ID
+
 const commands = [
     new SlashCommandBuilder()
         .setName('trubot')
@@ -21,9 +34,37 @@ const commands = [
     new SlashCommandBuilder()
         .setName('end')
         .setDescription('Ends the current session'),
-];
+].map(command => command.toJSON());
 
-// Add logic for games (Deathroll example provided)
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+(async () => {
+    try {
+        console.log('Registering slash commands...');
+        await rest.put(
+            Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+            { body: commands },
+        );
+        console.log('Slash commands registered!');
+    } catch (error) {
+        console.error('Error registering commands:', error);
+    }
+})();
+
+// Slash command handling
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isCommand()) return;
+
+    const { commandName } = interaction;
+
+    if (commandName === 'trubot') {
+        await interaction.reply('Hello! What would you like to play?\n1. Blackjack\n2. Poker\n3. Deathroll');
+    } else if (commandName === 'end') {
+        await interaction.reply('Goodbye!');
+    }
+});
+
+// Add logic for games
 function playDeathroll(message, startingNumber) {
     let currentMax = startingNumber;
     let currentPlayer = 1;
@@ -78,6 +119,3 @@ client.on('messageCreate', (message) => {
         }
     }
 });
-
-// Log in the bot
-client.login(process.env.DISCORD_TOKEN);
