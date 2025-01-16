@@ -6,13 +6,13 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages],
 });
 
-// Debug to confirm token is loaded
+// Debugging: Confirm the token is loaded
 console.log(`Loaded Token: ${process.env.DISCORD_TOKEN}`);
 console.log('Starting bot...');
 
-// Add the ready event
+// Ready Event: Confirm bot is online
 client.once('ready', () => {
-    console.log(`${client.user.tag} is online!`);
+    console.log(`${client.user.tag} is online and ready!`);
 });
 
 // Log in the bot
@@ -23,8 +23,8 @@ client.login(process.env.DISCORD_TOKEN).catch((error) => {
 console.log('After login attempt...');
 
 // Replace YOUR_CLIENT_ID and YOUR_GUILD_ID with actual IDs
-const CLIENT_ID = '1319967938215673887'; // Replace with your bot's Application ID
-const GUILD_ID = '1327403319727095869'; // Replace with your server's Guild ID
+const CLIENT_ID = process.env.CLIENT_ID || '1319967938215673887'; // Replace with your bot's Application ID
+const GUILD_ID = process.env.GUILD_ID || '1327403319727095869'; // Replace with your server's Guild ID
 
 // Slash command registration
 const commands = [
@@ -45,16 +45,78 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
             Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
             { body: commands },
         );
-        console.log('Slash commands registered!');
+        console.log('Slash commands registered successfully!');
     } catch (error) {
-        console.error('Error registering commands:', error);
+        console.error('Error registering slash commands:', error);
     }
 })();
 
-// Game state
-let activeGame = null;
+// Event: Slash Command Handling
+client.on('interactionCreate', async (interaction) => {
+    console.log(`Interaction received: ${interaction.commandName}`); // Log the command name
+    if (!interaction.isCommand()) {
+        console.log('Interaction is not a command');
+        return;
+    }
+
+    const { commandName } = interaction;
+
+    if (commandName === 'trubot') {
+        console.log('Responding to /trubot...');
+        await interaction.reply('Hello! What would you like to play?\n1. Blackjack\n2. Poker\n3. Deathroll');
+    } else if (commandName === 'end') {
+        console.log('Responding to /end...');
+        await interaction.reply('Goodbye!');
+    }
+});
+
+// Event: Message Create
+client.on('messageCreate', (message) => {
+    console.log(`Message received: ${message.content}`);
+    if (message.author.bot) return;
+
+    const content = message.content.trim();
+
+    if (content.startsWith('3')) {
+        const args = content.split(' ');
+        const startingNumber = parseInt(args[1], 10);
+
+        if (!startingNumber || isNaN(startingNumber) || startingNumber <= 1) {
+            message.channel.send(
+                'Invalid starting number! Use `3 <number>` to start Deathrolling. Example: `3 1000`.'
+            );
+            return;
+        }
+
+        // Ask for the bet description
+        message.channel.send('What are you betting on? (Type it below)').then(() => {
+            const filter = (response) => !response.author.bot && response.author.id === message.author.id;
+            const collector = message.channel.createMessageCollector({ filter, max: 1, time: 30000 });
+
+            collector.on('collect', (betMessage) => {
+                const betDescription = betMessage.content.trim();
+                if (!betDescription) {
+                    message.channel.send('You must include a bet description to start the game.');
+                    return;
+                }
+
+                startDeathroll(message, startingNumber, betDescription);
+            });
+
+            collector.on('end', (collected) => {
+                if (collected.size === 0) {
+                    message.channel.send('You did not provide a bet description in time. Game canceled.');
+                }
+            });
+        });
+    } else if (activeGame && !isNaN(content)) {
+        handleRoll(message, content);
+    }
+});
 
 // Deathroll Game Logic
+let activeGame = null;
+
 function startDeathroll(message, startingNumber, betDescription) {
     activeGame = {
         currentMax: startingNumber,
@@ -109,46 +171,3 @@ function handleRoll(message, rollInput) {
     activeGame.currentPlayer = currentPlayer === 1 ? 2 : 1;
     message.channel.send(`Player ${activeGame.currentPlayer}, your turn!`);
 }
-
-// Event: Message create
-client.on('messageCreate', (message) => {
-    if (message.author.bot) return;
-
-    const content = message.content.trim();
-
-    if (content.startsWith('3')) {
-        const args = content.split(' ');
-        const startingNumber = parseInt(args[1], 10);
-
-        if (!startingNumber || isNaN(startingNumber) || startingNumber <= 1) {
-            message.channel.send(
-                'Invalid starting number! Use `3 <number>` to start Deathrolling. Example: `3 1000`.'
-            );
-            return;
-        }
-
-        // Ask for the bet description
-        message.channel.send('What are you betting on? (Type it below)').then(() => {
-            const filter = (response) => !response.author.bot && response.author.id === message.author.id;
-            const collector = message.channel.createMessageCollector({ filter, max: 1, time: 30000 });
-
-            collector.on('collect', (betMessage) => {
-                const betDescription = betMessage.content.trim();
-                if (!betDescription) {
-                    message.channel.send('You must include a bet description to start the game.');
-                    return;
-                }
-
-                startDeathroll(message, startingNumber, betDescription);
-            });
-
-            collector.on('end', (collected) => {
-                if (collected.size === 0) {
-                    message.channel.send('You did not provide a bet description in time. Game canceled.');
-                }
-            });
-        });
-    } else if (activeGame && !isNaN(content)) {
-        handleRoll(message, content);
-    }
-});
